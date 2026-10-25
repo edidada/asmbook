@@ -1,0 +1,74 @@
+name: Build and Run MASM Sample
+
+on:
+  push:
+    branches: [main, ci]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-run:
+    name: Assemble, link and run AddSub2
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Extract sample archives
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Expand-Archive -LiteralPath Irvine.zip -DestinationPath . -Force
+          Expand-Archive -LiteralPath Project32_VS2022.zip -DestinationPath . -Force
+
+      - name: Set up MSVC x86 developer environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x86
+
+      - name: Assemble AddSub2.asm
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force -Path build | Out-Null
+          ml.exe /c /coff /nologo /I Irvine /Fl"build\AddSub2.lst" /Fo"build\AddSub2.obj" "Project32_VS2022\AddSub2.asm"
+          if ($LASTEXITCODE -ne 0) {
+            throw "MASM failed with exit code $LASTEXITCODE"
+          }
+
+      - name: Link AddSub2.exe
+        run: |
+          $ErrorActionPreference = 'Stop'
+          link.exe /nologo /SUBSYSTEM:CONSOLE /SAFESEH:NO `
+            /OUT:"build\AddSub2.exe" `
+            "build\AddSub2.obj" `
+            "Irvine\Irvine32.lib" `
+            "Irvine\User32.Lib" `
+            "Irvine\Kernel32.Lib"
+          if ($LASTEXITCODE -ne 0) {
+            throw "Link failed with exit code $LASTEXITCODE"
+          }
+
+      - name: Run AddSub2.exe
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $process = Start-Process -FilePath ".\build\AddSub2.exe" -NoNewWindow -Wait -PassThru
+          "AddSub2.exe exit code: $($process.ExitCode)"
+          if ($process.ExitCode -ne 0) {
+            throw "AddSub2.exe failed with exit code $($process.ExitCode)"
+          }
+          "AddSub2.exe ran successfully."
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: AddSub2
+          path: |
+            build/AddSub2.exe
+            build/AddSub2.lst
+          if-no-files-found: error

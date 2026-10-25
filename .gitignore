@@ -1,0 +1,12 @@
+# The zip archives are the source of truth.
+# They are extracted locally for inspection and by the CI workflow at build time.
+/Irvine/
+/Project32_VS2019/
+/Project32_VS2022/
+/Project32_VS2026/
+/Project64_VS2019/
+/Project64_VS2022/
+/Project64_VS2026/
+
+# Local/CI build output
+/build/
